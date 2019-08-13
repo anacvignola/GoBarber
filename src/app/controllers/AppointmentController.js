@@ -1,6 +1,6 @@
 import * as Yup from 'yup';
 import { startOfHour, parseISO, isBefore, format, subHours } from 'date-fns';
-import pt from 'date-fns/locale/pt-BR';
+import ptBR from 'date-fns/locale/pt-BR';
 import User from '../models/User';
 import File from '../models/File';
 import Appointment from '../models/Appointment';
@@ -45,6 +45,9 @@ class AppointmentController {
       return res.status(400).json({ error: 'Validation fails.' });
     }
     const { provider_id, date } = req.body;
+    /**
+     * Check if provider_id is a provider
+     */
     const checkIsProvider = await User.findOne({
       where: { id: provider_id, provider: true },
     });
@@ -52,6 +55,11 @@ class AppointmentController {
       return res
         .status(401)
         .json({ error: 'You can only create appointments with providers.' });
+    }
+    if (provider_id === req.userId) {
+      return res
+        .status(400)
+        .json({ error: "You can't create appointments with yourself" });
     }
     const hourStart = startOfHour(parseISO(date));
     if (isBefore(hourStart, new Date())) {
@@ -72,13 +80,13 @@ class AppointmentController {
     const appointment = await Appointment.create({
       user_id: req.userId,
       provider_id,
-      date,
+      date: hourStart,
     });
     const user = await User.findByPk(req.userId);
     const formattedDate = format(
       hourStart,
       "'dia' dd 'de' MMMM', ás' H:mm'h'",
-      { locale: pt }
+      { locale: ptBR }
     );
     await Notification.create({
       content: `Novo agendamento de ${user.name} para ${formattedDate}`,
